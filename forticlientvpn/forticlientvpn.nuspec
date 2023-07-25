@@ -37,7 +37,7 @@ Click here to [Patreon-ize](https://www.patreon.com/bcurran3) the package mainta
 ___
 
 </description>
-    <releaseNotes>https://docs.fortinet.com/document/forticlient/7.0.1/windows-release-notes/371487/introduction</releaseNotes>
+    <releaseNotes>https://docs.fortinet.com/document/forticlient/7.0.8/windows-release-notes/371487/introduction</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
