@@ -15,7 +15,7 @@
     <licenseUrl>https://www.fortinet.com/content/dam/fortinet/assets/legal/EULA.pdf</licenseUrl>
     <docsUrl>https://docs.fortinet.com/product/forticlient/7.4</docsUrl>
     <mailingListUrl>https://forum.fortinet.com/</mailingListUrl>
-    <tags>fortinet fortigate forticlient vpn ssl ipsec</tags>
+    <tags>fortinet fortigate forticlient vpn ssl ipsec notSilent</tags>
     <summary>SSL and IPSec VPN client for Fortinet firewalls.</summary>
     <description>
 FortiClient VPN is Fortinet's free, VPN-only client for connecting to FortiGate SSL and IPsec VPNs. This is the free edition — it does not include the full FortiClient endpoint-security suite (antivirus, web filtering, EMS management) and does not come with vendor technical support.
@@ -23,6 +23,8 @@ FortiClient VPN is Fortinet's free, VPN-only client for connecting to FortiGate 
 Installs to Fortinet's default location (`C:\Program Files\Fortinet\FortiClient\`) unless redirected via MSI properties.
 
 This package has no stable, version-pinned download URL to install from: Fortinet only distributes FortiClient VPN through a self-updating online installer that fetches the real MSI over its own update protocol at run time. The install script runs that official online installer, captures the MSI it downloads, verifies Fortinet's Authenticode signature on both the installer and the MSI, and confirms the captured MSI's real version matches this package's version before installing — so you always get a signature-verified, version-confirmed install even without a fixed checksum to pin.
+
+**Not fully silent:** Fortinet's online installer has no silent/quiet switch at all (verified by decompiling its entry point). While it runs, its own window is briefly visible, and it may spawn `msiexec` briefly before the install script stops it — this install script stops that process as soon as possible once the real MSI has been captured, but cannot suppress the vendor's window entirely.
 
 ![Screenshot of FortiClient VPN](https://cdn.staticaly.com/gh/BJD1997/ChocolateyPackages/eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_screenshot.png)
 </description>

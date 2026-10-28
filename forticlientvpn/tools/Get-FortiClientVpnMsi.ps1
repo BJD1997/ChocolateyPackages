@@ -15,6 +15,12 @@
 
     The installer and the captured MSI must both be validly signed by Fortinet, or this throws.
     Must run elevated (as a Chocolatey install script already does).
+
+    Not fully silent: the installer has no silent/quiet switch at all (checked by decompiling
+    its entry point), so its own window is briefly visible, and msiexec may flash briefly too
+    before being stopped. The script stops the whole tree the instant msiexec appears (proof the
+    MSI is already fully written) rather than waiting out a longer file-stability check, to keep
+    that window as short as a single polling interval instead of several seconds.
 #>
 [CmdletBinding()]
 param(
@@ -100,15 +106,38 @@ Write-Host "Installer signed by: $($installerSig.SignerCertificate.Subject)"
 $startTime = (Get-Date).AddSeconds(-5)
 
 Write-Host "Starting $InstallerPath"
-$proc = Start-Process -FilePath $InstallerPath -PassThru
+# -WindowStyle Hidden suppresses the window for installers that honor the
+# process's requested show-state; it does not reliably do so for every GUI
+# app (some force their own window visible regardless), so this is a
+# best-effort reduction, not a guarantee — see the msiexec fast-kill below
+# for the part that actually matters most.
+$proc = Start-Process -FilePath $InstallerPath -WindowStyle Hidden -PassThru
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $lastSizes = @{}
 $stableSince = $null
 $captured = $null
+$msiexecSeen = $false
 
 try {
     while ((Get-Date) -lt $deadline) {
-        Start-Sleep -Seconds 2
+        Start-Sleep -Milliseconds 500
+
+        # The wrapper only ever launches msiexec once its MSI is fully
+        # written to disk — msiexec appearing is itself proof the file is
+        # complete. Kill the whole tree the instant it's seen rather than
+        # waiting out the file-stability check below, so its installer
+        # window gets at most one polling interval on screen instead of
+        # several seconds.
+        if (-not $msiexecSeen) {
+            $newMsiexec = @(Get-CimInstance Win32_Process -Filter "Name='msiexec.exe'" -ErrorAction SilentlyContinue |
+                Where-Object { $_.CreationDate -ge $startTime })
+            if ($newMsiexec) {
+                $msiexecSeen = $true
+                Write-Host 'msiexec started — the MSI is complete, stopping the installer tree now'
+                if (-not $proc.HasExited) { Stop-ProcessTree -ProcessId $proc.Id }
+                foreach ($p in $newMsiexec) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+            }
+        }
 
         $files = @(Find-NewPackageFiles -Since $startTime)
         $msi = $files | Where-Object Extension -eq '.msi' | Sort-Object Length -Descending | Select-Object -First 1
@@ -120,9 +149,12 @@ try {
                 -not ($sizes.Keys | Where-Object { $lastSizes[$_] -ne $sizes[$_] })
             $lastSizes = $sizes
 
-            if ($unchanged -and $msi.Length -gt 0) {
+            # Once msiexec has already been stopped, the file can no longer
+            # be mid-write, so there's nothing left to wait out.
+            if (($unchanged -or $msiexecSeen) -and $msi.Length -gt 0) {
                 if (-not $stableSince) { $stableSince = Get-Date }
-                if (((Get-Date) - $stableSince).TotalSeconds -ge 6) {
+                $settleSeconds = if ($msiexecSeen) { 0 } else { 6 }
+                if (((Get-Date) - $stableSince).TotalSeconds -ge $settleSeconds) {
                     try {
                         $fs = [IO.File]::Open($msi.FullName, 'Open', 'Read', 'ReadWrite')
                         $fs.Close()
