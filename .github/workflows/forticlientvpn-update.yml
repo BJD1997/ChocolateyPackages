@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 6 * * 1'   # every Monday at 06:00 UTC
   workflow_dispatch:        # allow manual trigger for testing
+    inputs:
+      force_rebuild:
+        description: 'Pack and attach a draft release even if the real version has not changed (for testing the install script itself)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # commit the version bump and create a draft release
@@ -29,6 +34,8 @@ jobs:
       - name: Capture current FortiClient VPN MSI and compare versions
         id: version
         shell: pwsh
+        env:
+          FORCE_REBUILD: ${{ github.event.inputs.force_rebuild }}
         run: |
           $nuspecPath = 'forticlientvpn.nuspec'
           $current = ([xml](Get-Content $nuspecPath -Raw)).package.metadata.version
@@ -40,13 +47,23 @@ jobs:
 
           "latest=$($msi.ProductVersion)" >> $env:GITHUB_OUTPUT
 
-          if ([Version]$msi.ProductVersion -gt [Version]$current) {
+          $updateNeeded = [Version]$msi.ProductVersion -gt [Version]$current
+          if ($updateNeeded) {
               Write-Host "Update available: $current -> $($msi.ProductVersion)"
-              "update_needed=true" >> $env:GITHUB_OUTPUT
           } else {
-              Write-Host "Already current — nothing to do."
-              "update_needed=false" >> $env:GITHUB_OUTPUT
+              Write-Host "Already current."
           }
+          "update_needed=$updateNeeded" >> $env:GITHUB_OUTPUT
+
+          # Separate from update_needed: lets you pack+release a test build
+          # of whatever's already committed, without faking a version bump
+          # — e.g. after changing chocolateyinstall.ps1 itself.
+          $forceRebuild = $env:FORCE_REBUILD -eq 'true'
+          $packNeeded = $updateNeeded -or $forceRebuild
+          if (-not $updateNeeded -and $forceRebuild) {
+              Write-Host "Forced rebuild requested — packing anyway."
+          }
+          "pack_needed=$packNeeded" >> $env:GITHUB_OUTPUT
 
       - name: Bump nuspec version
         if: steps.version.outputs.update_needed == 'true'
@@ -61,7 +78,7 @@ jobs:
           Write-Host "nuspec bumped to $env:LATEST"
 
       - name: Ensure Chocolatey CLI is available
-        if: steps.version.outputs.update_needed == 'true'
+        if: steps.version.outputs.pack_needed == 'true'
         shell: pwsh
         run: |
           if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
@@ -76,7 +93,7 @@ jobs:
       # `choco install forticlientvpn -source <folder with this .nupkg>`
       # before ever running `choco push`, which this workflow never does.
       - name: Pack the .nupkg
-        if: steps.version.outputs.update_needed == 'true'
+        if: steps.version.outputs.pack_needed == 'true'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\pack" | Out-Null
@@ -84,7 +101,7 @@ jobs:
           Get-ChildItem "$env:RUNNER_TEMP\pack" | ForEach-Object { Write-Host "Built: $($_.Name)" }
 
       - name: Upload .nupkg as a workflow artifact
-        if: steps.version.outputs.update_needed == 'true'
+        if: steps.version.outputs.pack_needed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: forticlientvpn-${{ steps.version.outputs.latest }}
@@ -92,14 +109,16 @@ jobs:
           retention-days: 90
 
       - name: Create a draft release with the built package
-        if: steps.version.outputs.update_needed == 'true'
+        if: steps.version.outputs.pack_needed == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           LATEST: ${{ steps.version.outputs.latest }}
+          UPDATE_NEEDED: ${{ steps.version.outputs.update_needed }}
         run: |
           $tag   = "forticlientvpn-v$env:LATEST"
           $nupkg = (Get-ChildItem "$env:RUNNER_TEMP\pack\*.nupkg" | Select-Object -First 1).FullName
+          $reason = if ($env:UPDATE_NEEDED -eq 'true') { 'new version detected' } else { 'forced test rebuild, same version' }
 
           gh release delete $tag --yes --repo $env:GITHUB_REPOSITORY 2>&1 | Out-Null
 
@@ -107,7 +126,7 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --draft `
             --title "FortiClient VPN $env:LATEST (untested build)" `
-            --notes "Built automatically by the update-check workflow. **Not pushed to chocolatey.org.** Download this .nupkg and test it yourself first: ``choco install forticlientvpn -source <folder containing this .nupkg>`` — only run ``choco push`` once you've verified it installs and uninstalls cleanly."
+            --notes "Built automatically by the update-check workflow ($reason). **Not pushed to chocolatey.org.** Download this .nupkg and test it yourself first: ``choco install forticlientvpn -source <folder containing this .nupkg>`` — only run ``choco push`` once you've verified it installs and uninstalls cleanly."
 
       - name: Commit nuspec version bump
         if: steps.version.outputs.update_needed == 'true'
