@@ -25,11 +25,18 @@ if ($msi.ProductVersion -ne $packageVersion) {
           "Run the package's update check first so the declared version matches what Fortinet actually serves."
 }
 
+# Fortinet's own installer always installs this MSI with
+# REBOOT=r REINSTALL=ALL REINSTALLMODE=vomus MSIFASTINSTALL=7 (confirmed by
+# decompiling its entry point) - REINSTALLMODE=vomus in particular forces
+# Windows Installer to overwrite files even if it thinks nothing changed,
+# which matters for upgrading over the same ProductCode. Match that string
+# here, swapping REBOOT=r for ReallySuppress so choco controls the reboot
+# instead of an unprompted one.
 $packageArgs = @{
     packageName    = $packageName
     fileType       = 'MSI'
     file           = $msi.MsiPath
-    silentArgs     = "/qn /norestart /l*v `"$($env:TEMP)\$packageName.$packageVersion.MsiInstall.log`""
+    silentArgs     = "/qn /norestart /l*v `"$($env:TEMP)\$packageName.$packageVersion.MsiInstall.log`" REBOOT=ReallySuppress REINSTALL=ALL REINSTALLMODE=vomus MSIFASTINSTALL=7"
     validExitCodes = @(0, 3010, 1641)
 }
 
