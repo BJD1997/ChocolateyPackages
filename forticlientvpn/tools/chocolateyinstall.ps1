@@ -1,25 +1,38 @@
-$ErrorActionPreference = 'Stop'
-$packageName   = 'forticlientvpn'
-$toolsDir      = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
-$url = 'https://filestore.fortinet.com/forticlient/downloads/FortiClientVPNSetup_7.0.1.0083.zip'
-$checksum = 'd0d31562aca5e3b652dfef86085d9c72ff6ed0f960f51e44a506fc4aef7f91b9'
-$url64 = 'https://filestore.fortinet.com/forticlient/downloads/FortiClientVPNSetup_7.0.1.0083_x64.zip.zip'
-$checksum64 = '1f218f32abd41c678cc7dbc50a4da70fbe7c7647518555268a2a55068fc56b96'
-$fileLocation = Join-Path $toolsDir 'FortiClientVPN.msi'
+﻿$ErrorActionPreference = 'Stop'
+
+$packageName    = 'forticlientvpn'
+$packageVersion = $env:ChocolateyPackageVersion
+$toolsDir       = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$captureDir     = Join-Path $toolsDir 'capture'
+
+# Fortinet publishes no stable, version-specific download URL for FortiClient
+# VPN — only a self-updating online installer that fetches the real MSI over
+# its own update protocol at run time (see Get-FortiClientVpnMsi.ps1 for how
+# that capture works). There's no static file to pin a -Checksum against:
+# the "latest" bootstrap EXE itself changes independently of the VPN client
+# version whenever Fortinet republishes it. Integrity is verified instead by
+# checking Fortinet's own Authenticode signature on both the bootstrap and
+# the real MSI it downloads, and by confirming the captured MSI's real
+# ProductVersion matches this package's own version before installing —
+# together giving the same guarantee a checksum would (untampered content,
+# and the version you asked for is the version you get).
+$msi = & (Join-Path $toolsDir 'Get-FortiClientVpnMsi.ps1') -OutputPath $captureDir -TimeoutSeconds 900
+
+Write-Host "Captured $($msi.ProductName) $($msi.ProductVersion) (signed by $($msi.Signer))"
+
+if ($msi.ProductVersion -ne $packageVersion) {
+    throw "Fortinet currently serves $($msi.ProductVersion), but this package is $packageVersion. " +
+          "Run the package's update check first so the declared version matches what Fortinet actually serves."
+}
 
 $packageArgs = @{
-  packageName   = $packageName
-  unzipLocation = $toolsDir
-  fileType      = 'MSI'
-  url           = $url
-  url64         = $url64
-  file = $fileLocation
-  silentArgs = "/qn /norestart /l*v `"$($env:TEMP)\$($packageName).$($env:chocolateyPackageVersion).MsiInstall.log`""
-  softwareName  = 'FortiClient VPN' 
-  checksum      = $checksum
-  checksum64    = $checksum64
-  checksumType  = 'sha256'
-  }
+    packageName    = $packageName
+    fileType       = 'MSI'
+    file           = $msi.MsiPath
+    silentArgs     = "/qn /norestart /l*v `"$($env:TEMP)\$packageName.$packageVersion.MsiInstall.log`""
+    validExitCodes = @(0, 3010, 1641)
+}
 
-Install-ChocolateyZipPackage @packageArgs
 Install-ChocolateyInstallPackage @packageArgs
+
+Remove-Item -LiteralPath $captureDir -Recurse -Force -ErrorAction SilentlyContinue

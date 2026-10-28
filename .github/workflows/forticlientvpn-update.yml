@@ -1,0 +1,122 @@
+name: Check FortiClient VPN for updates
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # every Monday at 06:00 UTC
+  workflow_dispatch:        # allow manual trigger for testing
+
+permissions:
+  contents: write   # commit the version bump and create a draft release
+
+defaults:
+  run:
+    working-directory: forticlientvpn
+
+jobs:
+  check-update:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      # Fortinet publishes no version API or stable per-version download URL
+      # for FortiClient VPN — only a self-updating online installer. The
+      # only reliable way to know the real current version is to actually
+      # run it and read the MSI it downloads, same as Get-FortiClientVpnMsi.ps1
+      # does at install time on an end-user's machine.
+      - name: Capture current FortiClient VPN MSI and compare versions
+        id: version
+        shell: pwsh
+        run: |
+          $nuspecPath = 'forticlientvpn.nuspec'
+          $current = ([xml](Get-Content $nuspecPath -Raw)).package.metadata.version
+
+          $msi = & .\tools\Get-FortiClientVpnMsi.ps1 -OutputPath (Join-Path $env:RUNNER_TEMP 'capture') -TimeoutSeconds 1200
+
+          Write-Host "Current (nuspec): $current"
+          Write-Host "Real (Fortinet):  $($msi.ProductVersion)  [$($msi.ProductName), signed by $($msi.Signer)]"
+
+          "latest=$($msi.ProductVersion)" >> $env:GITHUB_OUTPUT
+
+          if ([Version]$msi.ProductVersion -gt [Version]$current) {
+              Write-Host "Update available: $current -> $($msi.ProductVersion)"
+              "update_needed=true" >> $env:GITHUB_OUTPUT
+          } else {
+              Write-Host "Already current — nothing to do."
+              "update_needed=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Bump nuspec version
+        if: steps.version.outputs.update_needed == 'true'
+        shell: pwsh
+        env:
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          $nuspecPath = 'forticlientvpn.nuspec'
+          $content = Get-Content $nuspecPath -Raw
+          $content = $content -replace '<version>[^<]+</version>', "<version>$env:LATEST</version>"
+          Set-Content -LiteralPath $nuspecPath -Value $content -NoNewline
+          Write-Host "nuspec bumped to $env:LATEST"
+
+      - name: Ensure Chocolatey CLI is available
+        if: steps.version.outputs.update_needed == 'true'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+              Set-ExecutionPolicy Bypass -Scope Process -Force
+              Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          }
+          choco --version
+
+      # Packs the .nupkg only — this does NOT run chocolateyinstall.ps1, so
+      # it does not itself verify the install script works. It's built so
+      # you can download it below and test it yourself with
+      # `choco install forticlientvpn -source <folder with this .nupkg>`
+      # before ever running `choco push`, which this workflow never does.
+      - name: Pack the .nupkg
+        if: steps.version.outputs.update_needed == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\pack" | Out-Null
+          choco pack forticlientvpn.nuspec --outputdirectory "$env:RUNNER_TEMP\pack"
+          Get-ChildItem "$env:RUNNER_TEMP\pack" | ForEach-Object { Write-Host "Built: $($_.Name)" }
+
+      - name: Upload .nupkg as a workflow artifact
+        if: steps.version.outputs.update_needed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: forticlientvpn-${{ steps.version.outputs.latest }}
+          path: ${{ runner.temp }}/pack/*.nupkg
+          retention-days: 90
+
+      - name: Create a draft release with the built package
+        if: steps.version.outputs.update_needed == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          $tag   = "forticlientvpn-v$env:LATEST"
+          $nupkg = (Get-ChildItem "$env:RUNNER_TEMP\pack\*.nupkg" | Select-Object -First 1).FullName
+
+          gh release delete $tag --yes --repo $env:GITHUB_REPOSITORY 2>&1 | Out-Null
+
+          gh release create $tag $nupkg `
+            --repo $env:GITHUB_REPOSITORY `
+            --draft `
+            --title "FortiClient VPN $env:LATEST (untested build)" `
+            --notes "Built automatically by the update-check workflow. **Not pushed to chocolatey.org.** Download this .nupkg and test it yourself first: ``choco install forticlientvpn -source <folder containing this .nupkg>`` — only run ``choco push`` once you've verified it installs and uninstalls cleanly."
+
+      - name: Commit nuspec version bump
+        if: steps.version.outputs.update_needed == 'true'
+        shell: pwsh
+        env:
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add forticlientvpn.nuspec
+          git commit -m "Bump forticlientvpn to $env:LATEST (untested build attached to a draft release — verify locally before choco push)"
+          git push

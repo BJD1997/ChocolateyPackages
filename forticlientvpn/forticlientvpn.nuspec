@@ -3,41 +3,30 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>forticlientvpn</id>
-    <version>7.0.1.0083</version>
+    <version>7.4.3.6002</version>
     <title>FortiClient VPN (Install)</title>
-    <authors>Fortinet Inc</authors>
-    <owners>BJD1997</owners>
+    <authors>Fortinet, Inc.</authors>
+    <owners>BJD1997, C.Hainke</owners>
     <packageSourceUrl>https://github.com/BJD1997/ChocolateyPackages/tree/main/forticlientvpn</packageSourceUrl>
     <projectUrl>https://www.forticlient.com/downloads</projectUrl>
-    <iconUrl>https://cdn.staticaly.com/gh/BJD1997/ChocolateyPackages/main/forticlientvpn/forticlientvpn_icon.png</iconUrl>
-    <copyright>Copyright © Fortinet Inc</copyright>
+    <iconUrl>https://cdn.staticaly.com/gh/BJD1997/ChocolateyPackages/eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_icon.png</iconUrl>
+    <copyright>Copyright © Fortinet, Inc.</copyright>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <licenseUrl>https://www.fortinet.com/content/dam/fortinet/assets/legal/EULA.pdf</licenseUrl>
-    <docsUrl>https://docs.fortinet.com/product/forticlient/7.0</docsUrl>
+    <docsUrl>https://docs.fortinet.com/product/forticlient/7.4</docsUrl>
     <mailingListUrl>https://forum.fortinet.com/</mailingListUrl>
-    <tags>fortinet fortigate forticlient vpn</tags>
+    <tags>fortinet fortigate forticlient vpn ssl ipsec</tags>
     <summary>SSL and IPSec VPN client for Fortinet firewalls.</summary>
     <description>
-___
-### [choco://forticlientvpn](choco://forticlientvpn)
-To use choco:// protocol URLs, install [(unofficial) choco:// Protocol support ](https://chocolatey.org/packages/choco-protocol-support)
-___
+FortiClient VPN is Fortinet's free, VPN-only client for connecting to FortiGate SSL and IPsec VPNs. This is the free edition — it does not include the full FortiClient endpoint-security suite (antivirus, web filtering, EMS management) and does not come with vendor technical support.
 
-![Screenshot of FortiClient VPN](https://cdn.staticaly.com/gh/bcurran3/ChocolateyPackages/master/forticlientvpn/forticlientvpn_screenshot.png)	
+Installs to Fortinet's default location (`C:\Program Files\Fortinet\FortiClient\`) unless redirected via MSI properties.
 
-This is a free version of FortiClient VPN software which supports limited features and does not include technical support.
-Upgrade to the full version to access additional features and receive technical support.
+This package has no stable, version-pinned download URL to install from: Fortinet only distributes FortiClient VPN through a self-updating online installer that fetches the real MSI over its own update protocol at run time. The install script runs that official online installer, captures the MSI it downloads, verifies Fortinet's Authenticode signature on both the installer and the MSI, and confirms the captured MSI's real version matches this package's version before installing — so you always get a signature-verified, version-confirmed install even without a fixed checksum to pin.
 
-**[PACKAGE NOTES](https://github.com/bcurran3/ChocolateyPackages/blob/master/forticlientvpn/readme.md)**
-  
-
-___
-
-Click here to [Patreon-ize](https://www.patreon.com/bcurran3) the package maintainer.
-___
-
+![Screenshot of FortiClient VPN](https://cdn.staticaly.com/gh/BJD1997/ChocolateyPackages/eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_screenshot.png)
 </description>
-    <releaseNotes>https://docs.fortinet.com/document/forticlient/7.0.1/windows-release-notes/371487/introduction</releaseNotes>
+    <releaseNotes>https://docs.fortinet.com/product/forticlient</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
