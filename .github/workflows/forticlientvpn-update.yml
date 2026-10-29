@@ -21,6 +21,9 @@ jobs:
   check-update:
     runs-on: windows-latest
     timeout-minutes: 30
+    outputs:
+      latest: ${{ steps.version.outputs.latest }}
+      update_needed: ${{ steps.version.outputs.update_needed }}
 
     steps:
       - name: Checkout
@@ -122,11 +125,17 @@ jobs:
 
           gh release delete $tag --yes --repo $env:GITHUB_REPOSITORY 2>&1 | Out-Null
 
+          $pushNote = if ($env:UPDATE_NEEDED -eq 'true') {
+              "A separate job will wait for your approval (GitHub will notify you) before running ``choco push`` on this exact .nupkg."
+          } else {
+              "Forced test rebuild — never pushed to chocolatey.org automatically."
+          }
+
           gh release create $tag $nupkg `
             --repo $env:GITHUB_REPOSITORY `
             --draft `
             --title "FortiClient VPN $env:LATEST (untested build)" `
-            --notes "Built automatically by the update-check workflow ($reason). **Not pushed to chocolatey.org.** Download this .nupkg and test it yourself first: ``choco install forticlientvpn -source <folder containing this .nupkg>`` — only run ``choco push`` once you've verified it installs and uninstalls cleanly."
+            --notes "Built automatically by the update-check workflow ($reason). **Not pushed to chocolatey.org yet.** Download this .nupkg and test it yourself first: ``choco install forticlientvpn -source <folder containing this .nupkg>``. $pushNote"
 
       - name: Commit nuspec version bump
         if: steps.version.outputs.update_needed == 'true'
@@ -139,3 +148,53 @@ jobs:
           git add forticlientvpn.nuspec
           git commit -m "Bump forticlientvpn to $env:LATEST (untested build attached to a draft release — verify locally before choco push)"
           git push
+
+  # Only runs when a real new version was detected (never for a force_rebuild
+  # test-only dispatch). The `environment: chocolatey-push` gate pauses this
+  # job until a required reviewer approves it in the GitHub UI — nothing
+  # reaches chocolatey.org without that manual click, even though the rest
+  # of the pipeline is fully automated.
+  push-to-chocolatey:
+    needs: check-update
+    if: needs.check-update.outputs.update_needed == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    environment: chocolatey-push
+    defaults:
+      run:
+        working-directory: forticlientvpn
+
+    steps:
+      - name: Download the built .nupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: forticlientvpn-${{ needs.check-update.outputs.latest }}
+          path: ${{ runner.temp }}/pack
+
+      - name: Ensure Chocolatey CLI is available
+        shell: pwsh
+        run: |
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+              Set-ExecutionPolicy Bypass -Scope Process -Force
+              Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          }
+          choco --version
+
+      - name: choco push
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: |
+          $nupkg = (Get-ChildItem "$env:RUNNER_TEMP\pack\*.nupkg" | Select-Object -First 1).FullName
+          choco push $nupkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+
+      - name: Mark the release as published
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ needs.check-update.outputs.latest }}
+        run: |
+          $tag = "forticlientvpn-v$env:LATEST"
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false `
+            --title "FortiClient VPN $env:LATEST" `
+            --notes "Pushed to chocolatey.org after approval. See the package's moderation page on the Chocolatey Community Repository for review status."

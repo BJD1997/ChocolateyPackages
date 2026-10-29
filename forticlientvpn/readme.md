@@ -28,12 +28,19 @@ version, and if it's newer than this package's `<version>`:
 3. Uploads it as a workflow artifact and attaches it to a **draft** GitHub
    Release tagged `forticlientvpn-v<version>`.
 
-**It never runs `choco pack`'s install script and never runs `choco push`.**
-Packing a nuspec doesn't execute `chocolateyinstall.ps1` — it only bundles
-the files — so a successful build here says nothing about whether the
-install script actually works for that version.
+**It never runs `choco pack`'s install script.** Packing a nuspec doesn't
+execute `chocolateyinstall.ps1` — it only bundles the files — so a
+successful build here says nothing about whether the install script
+actually works for that version. That's why `choco push` is gated behind a
+manual approval (below) rather than running right after the build.
 
-## Before you push a new version
+## Before approving a push
+
+A second job, `push-to-chocolatey`, only runs when a real version bump was
+detected (never for a `force_rebuild` test dispatch) and only after you
+approve it in GitHub (it uses a `chocolatey-push` protected environment with
+you as the required reviewer — GitHub notifies you, and you approve or
+reject it from the run's page). Before approving:
 
 1. Download the `.nupkg` from the workflow run's artifact, or from the
    draft release it creates.
@@ -43,6 +50,11 @@ install script actually works for that version.
    ```
 3. Confirm it installs cleanly, then confirm `choco uninstall forticlientvpn`
    removes it cleanly too.
-4. Only once that's verified, run `choco push <path-to-nupkg> --source https://push.chocolatey.org/`
-   yourself (needs your own chocolatey.org API key) and publish/delete the
-   draft GitHub release as you see fit.
+4. Only once that's verified, approve the `push-to-chocolatey` job. It runs
+   `choco push` on the exact same `.nupkg` using the `CHOCO_API_KEY` secret
+   (set on the `chocolatey-push` environment, not the repo — add your own
+   chocolatey.org API key there under
+   Settings → Environments → chocolatey-push → Environment secrets) and then
+   marks the draft release as published.
+5. Rejecting the job instead just lets the draft release sit untouched —
+   nothing reaches chocolatey.org.
