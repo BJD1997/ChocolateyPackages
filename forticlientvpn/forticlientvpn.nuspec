@@ -3,7 +3,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>forticlientvpn</id>
-    <version>7.4.3.6001</version>
+    <version>7.4.3.6002</version>
     <title>FortiClient VPN (Install)</title>
     <authors>Fortinet, Inc.</authors>
     <owners>BJD1997, C.Hainke</owners>
