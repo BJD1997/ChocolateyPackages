@@ -3,13 +3,13 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>forticlientvpn</id>
-    <version>7.4.3.6002</version>
+    <version>7.4.3.6001</version>
     <title>FortiClient VPN (Install)</title>
     <authors>Fortinet, Inc.</authors>
     <owners>BJD1997, C.Hainke</owners>
     <packageSourceUrl>https://github.com/BJD1997/ChocolateyPackages/tree/main/forticlientvpn</packageSourceUrl>
-    <projectUrl>https://www.forticlient.com/downloads</projectUrl>
-    <iconUrl>https://cdn.staticaly.com/gh/BJD1997/ChocolateyPackages/eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_icon.png</iconUrl>
+    <projectUrl>https://www.fortinet.com/support/product-downloads</projectUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/BJD1997/ChocolateyPackages@eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_icon.png</iconUrl>
     <copyright>Copyright © Fortinet, Inc.</copyright>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <licenseUrl>https://www.fortinet.com/content/dam/fortinet/assets/legal/EULA.pdf</licenseUrl>
@@ -26,7 +26,7 @@ This package has no stable, version-pinned download URL to install from: Fortine
 
 **Not fully silent:** Fortinet's online installer has no silent/quiet switch at all (verified by decompiling its entry point). While it runs, its own window is briefly visible, and it may spawn `msiexec` briefly before the install script stops it — this install script stops that process as soon as possible once the real MSI has been captured, but cannot suppress the vendor's window entirely.
 
-![Screenshot of FortiClient VPN](https://cdn.staticaly.com/gh/BJD1997/ChocolateyPackages/eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_screenshot.png)
+![Screenshot of FortiClient VPN](https://cdn.jsdelivr.net/gh/BJD1997/ChocolateyPackages@eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_screenshot.png)
 </description>
     <releaseNotes>https://docs.fortinet.com/product/forticlient</releaseNotes>
   </metadata>
