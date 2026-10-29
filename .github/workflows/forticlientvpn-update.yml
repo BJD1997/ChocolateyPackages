@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
       # Fortinet publishes no version API or stable per-version download URL
       # for FortiClient VPN — only a self-updating online installer. The
@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload .nupkg as a workflow artifact
         if: steps.version.outputs.pack_needed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: forticlientvpn-${{ steps.version.outputs.latest }}
           path: ${{ runner.temp }}/pack/*.nupkg
@@ -170,10 +170,10 @@ jobs:
       # the repo is actually checked out — without this step every run:
       # step fails immediately with "the directory name is invalid".
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
       - name: Download the built .nupkg
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.2
         with:
           name: forticlientvpn-${{ needs.check-update.outputs.latest }}
           path: ${{ runner.temp }}/pack
