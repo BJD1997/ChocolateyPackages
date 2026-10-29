@@ -165,6 +165,13 @@ jobs:
         working-directory: forticlientvpn
 
     steps:
+      # This job has its own `defaults.run.working-directory: forticlientvpn`
+      # (inherited from the workflow-level default), which only exists once
+      # the repo is actually checked out — without this step every run:
+      # step fails immediately with "the directory name is invalid".
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
       - name: Download the built .nupkg
         uses: actions/download-artifact@v4
         with:
