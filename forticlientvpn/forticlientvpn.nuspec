@@ -25,8 +25,6 @@ Installs to Fortinet's default location (`C:\Program Files\Fortinet\FortiClient\
 This package has no stable, version-pinned download URL to install from: Fortinet only distributes FortiClient VPN through a self-updating online installer that fetches the real MSI over its own update protocol at run time. The install script runs that official online installer, captures the MSI it downloads, verifies Fortinet's Authenticode signature on both the installer and the MSI, and confirms the captured MSI's real version matches this package's version before installing — so you always get a signature-verified, version-confirmed install even without a fixed checksum to pin.
 
 **Not fully silent:** Fortinet's online installer has no silent/quiet switch at all (verified by decompiling its entry point). While it runs, its own window is briefly visible, and it may spawn `msiexec` briefly before the install script stops it — this install script stops that process as soon as possible once the real MSI has been captured, but cannot suppress the vendor's window entirely.
-
-![Screenshot of FortiClient VPN](https://cdn.jsdelivr.net/gh/BJD1997/ChocolateyPackages@eb1ebf116e343e439a0ae5d5394280d58e2b222b/forticlientvpn/forticlientvpn_screenshot.png)
 </description>
     <releaseNotes>https://docs.fortinet.com/product/forticlient</releaseNotes>
   </metadata>

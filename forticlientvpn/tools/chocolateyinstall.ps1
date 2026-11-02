@@ -21,8 +21,12 @@ $msi = & (Join-Path $toolsDir 'Get-FortiClientVpnMsi.ps1') -OutputPath $captureD
 Write-Host "Captured $($msi.ProductName) $($msi.ProductVersion) (signed by $($msi.Signer))"
 
 if ($msi.ProductVersion -ne $packageVersion) {
-    throw "Fortinet currently serves $($msi.ProductVersion), but this package is $packageVersion. " +
-          "Run the package's update check first so the declared version matches what Fortinet actually serves."
+    throw "Fortinet is now serving FortiClient VPN $($msi.ProductVersion), but this package " +
+          "($packageVersion) hasn't caught up yet — the automated update check runs weekly, so " +
+          "a newer forticlientvpn package should appear within a few days. In the meantime, check " +
+          "https://community.chocolatey.org/packages/forticlientvpn for a newer version (choco upgrade forticlientvpn " +
+          "once one is published), or install directly from https://www.fortinet.com/support/product-downloads " +
+          "if you need it right away."
 }
 
 # Fortinet's own installer always installs this MSI with
